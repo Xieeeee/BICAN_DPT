@@ -44,13 +44,16 @@ done
 ```
 
 ### additionally "binarize" DNA hyperCG score using 0.9 as cutoff
+```
 for bsize in {200,500,1000}
 do
 	mkdir -p ${bindir}/${bsize}/DNAme ${signaldir}/${bsize}/DNAme
 	python ~/scripts/DPT/chromhmm_signalize.py combine --binned_dir ${binneddir}/${bsize}/DNAme --binsize ${bsize} --combined_dir ${signaldir}/${bsize}/DNAme config
 done
+```
 
 ### convert value to prevent chromhmm error
+```
 for bsize in {200,500,1000}
 do
 	mkdir ${bindir}/${bsize}/DNAme
@@ -60,6 +63,7 @@ do
 		nohup python convert_value.py ${file} ${bindir}/${bsize}/DNAme/${fname}_binary.txt &
 	done
 done
+```
 
 ### concat histone binary files with DNAme
 ```
