@@ -16,7 +16,7 @@ Direct measurement of chromatin states with transcription is essential for under
 
 ## Method
 We used Droplet Paired-Tag to jointly profile the nuclear transcriptome together with either H3K27ac or H3K27me3 in the same nucleus.
-- Protocol: [Droplet Paired-Tag v2.0](https://www.protocols.io/view/droplet-paired-tag-v2-0-kq5tcvy6p) (protocols.io)
+- Protocol: [Droplet Paired-Tag v2.0](./protocol/droplet-paired-tag-v2-0-kq5tcvy6p.pdf) (PDF)
 - Original method: [Xie et al., *Nat Struct Mol Biol* 2023](https://www.nature.com/articles/s41594-023-01060-1)
 
 ## Analysis
