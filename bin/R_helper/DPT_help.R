@@ -7,10 +7,73 @@
 library(Matrix)
 library(dichromat)
 library(viridis)
-source("/projects/ps-renlab2/y2xie/scripts/basics.R")
 
 tori <- c("#477a96", "#c3533d", "#85212b", "#bcc9d1", "#6a9d84")
 colfunc2 <- colorRampPalette(c(tori))
+
+### mouse to human gene conversion or vice versa
+convert_mouse_to_human <- function(gene_list, direction = "m2h"){
+    mouse_human_genes = read.csv("http://www.informatics.jax.org/downloads/reports/HOM_MouseHumanSequence.rpt", sep = "\t")
+    output = c()
+    if(direction == "m2h"){
+        qry <- "mouse, laboratory"
+        ref <- "human"
+    }else if(direction == "h2m"){
+        ref <- "mouse, laboratory"
+        qry <- "human"
+    }else{
+        stop("direction can only be m2h or h2m.")
+    }
+    for(gene in gene_list){
+        class_key = (mouse_human_genes %>% filter(Symbol == gene & Common.Organism.Name==qry))[['DB.Class.Key']]
+        if(!identical(class_key, integer(0)) ){
+            human_genes = (mouse_human_genes %>% filter(DB.Class.Key == class_key & Common.Organism.Name==ref))[,"Symbol"]
+            for(human_gene in human_genes){
+                output = append(output,human_gene)
+            }
+        }
+    }
+    return(output)
+}
+
+### Process homer annotatePeak.pl results
+sum_anno <- function(df){
+	    t1 <- table(df$Annotation) %>% as.data.frame %>%
+		        mutate(Var1 = gsub("^([^\\(]+).*", "\\1", Var1)) %>%
+			    group_by(Var1) %>% summarise(Freq = sum(Freq))
+
+		        t1a1 <- t1[grep("\\|", t1$Var1, invert = T), ] %>%
+				    mutate(Var1 = gsub("^(CpG)-.*$", "\\1", Var1)) %>%
+				        group_by(Var1) %>% summarise(Freq = sum(Freq)) %>% setNames(c("Var1", "Freq"))
+
+				    t1a2 <- t1[grep("\\|", t1$Var1), ] %>% 
+					        mutate(Var1 = gsub("^([^|]+)\\|([^|]+)\\|([^|]+)$", "\\2", Var1)) %>%
+						    mutate(Var1 = gsub("\\?", "", Var1)) %>%
+						        mutate(simple = ifelse(Var1 %in% c("LINE", "LTR", "SINE", "Simple_repeat"), Var1, "Other repeats")) %>%
+							    group_by(simple) %>% summarise(Freq = sum(Freq)) %>% setNames(c("Var1", "Freq"))
+
+						        anno <- rbind(t1a1, t1a2)
+							    return(anno)
+}
+
+sum_detailed_anno <- function(df){
+	    t1 <- table(df$Detailed.Annotation) %>% as.data.frame %>%
+		        mutate(Var1 = gsub("^([^\\(]+).*", "\\1", Var1)) %>%
+			    group_by(Var1) %>% summarise(Freq = sum(Freq))
+
+		        t1a1 <- t1[grep("\\|", t1$Var1, invert = T), ] %>%
+				    mutate(Var1 = gsub("^(CpG)-.*$", "\\1", Var1)) %>%
+				        group_by(Var1) %>% summarise(Freq = sum(Freq)) %>% setNames(c("Var1", "Freq"))
+
+				    t1a2 <- t1[grep("\\|", t1$Var1), ] %>% 
+					        mutate(Var1 = gsub("^([^|]+)\\|([^|]+)\\|([^|]+)$", "\\2", Var1)) %>%
+						    mutate(Var1 = gsub("\\?", "", Var1)) %>%
+						        mutate(simple = ifelse(Var1 %in% c("LINE", "LTR", "SINE", "Simple_repeat"), Var1, "Other repeats")) %>%
+							    group_by(simple) %>% summarise(Freq = sum(Freq)) %>% setNames(c("Var1", "Freq"))
+
+						        anno <- rbind(t1a1, t1a2)
+							    return(anno)
+}
 
 ### read in fragment counts to calculate frip ###
 ImportArcFRiP <- function(raw_count, frip_count){
@@ -108,7 +171,7 @@ PlotArcFragment <- function(frag_path, prefix){
 
 ### After in-house processing of 10X Multiome, merge both modalities for plotting ###
 PairArc <- function(dmat, rmat, names = "atac"){
-    translate <- read.table("/projects/ps-renlab/y2xie/projects/genome_ref/arc_bc-translation.txt", header = T, row.names = 1, sep = "\t")
+    translate <- read.table("/projects/ps-renlab2/y2xie/ps-renlab/y2xie/projects/genome_ref/arc_bc-translation.txt", header = T, row.names = 1, sep = "\t")
     translate$atac <- paste0(translate$atac, "-1")
     translate$rna <- paste0(translate$rna, "-1")
     # rownames(translate) <- paste0(translate$rna, "-1")
@@ -133,7 +196,7 @@ PlotArcPair <- function(pair, dcutoff = 100, rcutoff = 100, prefix, names = "ata
     if((!all(c("bc", "dna_count", "rna_count") %in% colnames(pair)))){
         stop('colnames of input dataframe should be c("bc", "dna_count", "rna_count")')
     }
-    translate <- read.table("/projects/ps-renlab/y2xie/projects/genome_ref/arc_bc-translation.txt", header = T, row.names = 1, sep = "\t")
+    translate <- read.table("/projects/ps-renlab2/y2xie/ps-renlab/y2xie/projects/genome_ref/arc_bc-translation.txt", header = T, row.names = 1, sep = "\t")
     translate$atac <- paste0(translate$atac, "-1")
     translate$rna <- paste0(translate$rna, "-1")
     
@@ -167,7 +230,7 @@ PlotArcPair_d <- function(pair, dcutoff = 100, rcutoff = 100, prefix, names = "a
     if((!all(c("bc", "dna_count", "rna_count") %in% colnames(pair)))){
         stop('colnames of input dataframe should be c("bc", "dna_count", "rna_count")')
     }
-    translate <- read.table("/projects/ps-renlab/y2xie/projects/genome_ref/arc_bc-translation.txt", header = T, row.names = 1, sep = "\t")
+    translate <- read.table("/projects/ps-renlab2/y2xie/ps-renlab/y2xie/projects/genome_ref/arc_bc-translation.txt", header = T, row.names = 1, sep = "\t")
     translate$atac <- paste0(translate$atac, "-1")
     translate$rna <- paste0(translate$rna, "-1")
     
@@ -210,7 +273,7 @@ PlotArcPair2 <- function(pair, dvalid, rvalid, prefix, names = "atac"){
     if(!identical(colnames(pair), c("bc", "dna_count", "rna_count"))){
         stop('colnames of input dataframe should be c("bc", "dna_count", "rna_count")')
     }
-    translate <- read.table("/projects/ps-renlab/y2xie/projects/genome_ref/arc_bc-translation.txt", header = T, row.names = 1, sep = "\t")
+    translate <- read.table("/projects/ps-renlab2/y2xie/ps-renlab/y2xie/projects/genome_ref/arc_bc-translation.txt", header = T, row.names = 1, sep = "\t")
     translate$atac <- paste0(translate$atac, "-1")
     translate$rna <- paste0(translate$rna, "-1")
     pair$rna_bc <- translate[match(pair$bc, translate$atac), "rna"]
@@ -240,8 +303,6 @@ PlotArcPair2 <- function(pair, dvalid, rvalid, prefix, names = "atac"){
     return(valid_bc)
 }
 
-
-
 ### Fast run Seurat ###
 RunRNA <- function(obj, reduction = "pca", var = "none", batch.label = "none"){
     obj <- NormalizeData(obj, normalization.method = "LogNormalize", scale.factor = 10000)
@@ -258,6 +319,26 @@ RunRNA <- function(obj, reduction = "pca", var = "none", batch.label = "none"){
     }
     obj <- RunUMAP(obj, dims = 1:30, min.dist = 0.1, seed.use=131, reduction = reduction,
                    n.components = 2L, umap.method = "uwot", n.neighbors = 25, uwot.sgd=TRUE, verbose=F)
+    return(obj)
+}
+
+RunRNA2 <- function(obj, reduction = "pca", var = "none", batch.label = "none", k = 15) 
+{
+    if (var != "none") {
+        obj <- SCTransform(obj, vars.to.regress = var, verbose = FALSE)
+    }
+    else {
+        obj <- SCTransform(obj, verbose = FALSE)
+    }
+    obj <- RunPCA(obj, verbose = F)
+    if (batch.label != "none") {
+        obj <- RunHarmony(obj, group.by.vars = batch.label)
+        reduction <- "harmony"
+    }
+    obj <- RunUMAP(obj, dims = 1:50, reduction = reduction, 
+                   return.model = TRUE, seed.use = 921, metric = "cosine",
+                   n.neighbors = k, min.dist = 0.1, n.components = 2L, umap.method = "uwot", 
+                   uwot.sgd = TRUE, verbose = F)
     return(obj)
 }
 
@@ -285,9 +366,10 @@ OP2 <- function (x) {
 
 ### calculate cpm/rpkm by cluster (aggreagated cells for calculation) ###
     ### for histone, nCount_histone is used. for RNA, nCount_RNA is used. ###
-ArcXPM <- function (obj_mtx, meta, method = "CPM", group.by, gname = "gene_id", gene_length = "/projects/ps-renlab/y2xie/projects/genome_ref/mm10-2020-A_build/mm10_gene_allowlist.bed") {
+ArcXPM <- function (obj_mtx, meta, method = "CPM", group.by, gname = "gene_id", gene_length = "/projects/ps-renlab2/y2xie/ps-renlab/y2xie/projects/genome_ref/mm10-2020-A_build/mm10_gene_allowlist.bed") {
     colnames(obj_mtx) <- meta[colnames(obj_mtx), group.by]
-    obj_mtx <- as(obj_mtx, "dgTMatrix")
+    # obj_mtx <- as(obj_mtx, "dgTMatrix")
+    obj_mtx <- as(obj_mtx, "TsparseMatrix")
     obj_mtx_collapse <- OP2(obj_mtx)
     spars <- length(obj_mtx_collapse@x)/obj_mtx_collapse@Dim[1]/obj_mtx_collapse@Dim[2]
     cat(paste0("sparsity: ", spars, "\n"))
@@ -324,7 +406,7 @@ ArcXPM <- function (obj_mtx, meta, method = "CPM", group.by, gname = "gene_id", 
     return(obj_collapse_XPM)
 }
 
-ArcXPM2 <- function (obj_mtx, meta, method = "CPM", group.by, gname = "gene_id", gene_length = "/projects/ps-renlab/y2xie/projects/genome_ref/mm10-2020-A_build/mm10_gene_allowlist.bed") {
+ArcXPM2 <- function (obj_mtx, meta, method = "CPM", group.by, gname = "gene_id", gene_length = "/projects/ps-renlab2/y2xie/ps-renlab/y2xie/projects/genome_ref/mm10-2020-A_build/mm10_gene_allowlist.bed") {
     colnames(obj_mtx) <- meta[colnames(obj_mtx), group.by]
     obj_mtx <- as(obj_mtx, "dgTMatrix")
     uniqnms <- unique(colnames(obj_mtx))
@@ -395,7 +477,7 @@ cal_ovlpScore <- function(t1, t2){
       t2.pct.df <- data.frame(t2.pct[,t2.label])
       colnames(t2.pct.df) <- "t2"
       t2.pct.df$ident <- rownames(t2.pct.df)
-      comp.df <- dplyr::full_join(t1.pct.df, t2.pct.df, by="ident", type="full")
+      comp.df <- dplyr::full_join(t1.pct.df, t2.pct.df, by="ident")
       comp.df[is.na(comp.df)] <- 0
       comp.df$ident <- NULL
       comp.df <- t(comp.df)
@@ -407,29 +489,6 @@ cal_ovlpScore <- function(t1, t2){
   return(ovlpScore.df)
 }
 
-
-### calculate number of PC used for clustering; this is an implementation of ALLCools significant_pc_test function
-significant_pc_test <- function(pc, p_cutoff = 0.1, min_pc = 15, downsample = 50000){
-    if(nrow(pc) > downsample){
-        pc <- pc[sample(nrow(pc), size = downsample), ]
-        print(paste0("Downsample PC matrix to ", downsample, " cells to calculate significant PC components"))
-    }
-    for (i in 1:(ncol(pc)-1)){
-        cur_pc = pc[, i]
-        next_pc = pc[, i + 1]
-        test_result <- ks.test(cur_pc, next_pc)
-        if (test_result$p.value > p_cutoff){
-            break
-        }
-    }
-    n_components <- min(i + 1, ncol(pc))
-    min_pc <- min(15, ncol(pc))
-    if (n_components < min_pc){
-        print(paste0('only ', n_components, ' passed the P cutoff. In order to proceed following analysis, will use first ', min_pc, ' PCs'))
-        n_components <- min_pc
-    } 
-    return(n_components)
-}
 
 ### calculate enrichment of gene with aggregated cell by group matrix
 ### can be used to calculate QC score with specific set of gene
@@ -483,146 +542,16 @@ ssgsea <- function(X, gene_sets, alpha = 0.25, scale = T, norm = F, single = T) 
     return(es)
 }
 
-### implement of onestep_clust() from hicat
-seurat_onestep_clust <- function(mmg, reduction = "pca", var = "none", batch.label = "none", npc = "none", res = "none"){
-    print("Perform log CPM normalization...")
-    mmg <- NormalizeData(mmg, normalization.method = "LogNormalize", scale.factor = 1e6) 
-    norm.dat <- mmg[["RNA"]]@data
-    
-    print("Perform variable features selection using Brennecke's method...")
-    ### pre-filtering on gene used
-    filt_genes <- row.names(norm.dat)[which(Matrix::rowSums(norm.dat > 1) >= 10)]
-    norm.count <- norm.dat
-    norm.count@x = 2^(norm.count@x) - 1
-    vg <- find_vg(norm.count[filt_genes,], rescaled = F, return_type = "data", verbose = F)
-    sg <- vg[which(vg$loess.padj < 0.5 | vg$dispersion > 3), "gene"]
-    print(paste0("number of variable genes calculated by hicat method: ", length(sg)))
-    
-    if (length(sg) > 3000){
-        sg <- head(sg[order(vg[sg, "loess.padj"], -vg[sg, "z"])], 3000)
-    }
-
-    Misc(object = mmg, slot = "hicat_vg") <- vg
-    VariableFeatures(mmg) <- sg
-
-    print("Perform data scaling and PCA...")
-    if (var != "none") {
-        mmg <- ScaleData(mmg, vars.to.regress = var)
-    }else {
-        mmg <- ScaleData(mmg)
-    }
-    mmg <- RunPCA(mmg, features = VariableFeatures(object = mmg), npcs = 50, verbose = F)
-    
-    ### select top pc
-    if (npc == "none") {
-        npc <- significant_pc_test(mmg@reductions$pca@cell.embeddings, min_pc = 15)
-    }
-    print(paste0("Number of PC selected for downstream analysis: ", npc)) 
-    
-    if (batch.label != "none") {
-        mmg <- RunHarmony(mmg, group.by.vars = batch.label, dims.use = 1:npc)
-        reduction <- "harmony"
-    }
-    
-    if(ncol(mmg) >= 500000){
-    k <- 50
-    }else if(ncol(mmg) >= 200000 & ncol(mmg) < 500000){
-        k <- 25
-    }else{
-        k <- 15
-    }
-    print(paste0("Number of neighbors selected for downstream analysis: ", k))
-    
-    print("Perform UMAP embedding...")
-    mmg <- RunUMAP(mmg, dims = 1:npc, seed.use = 131, reduction = reduction, 
-                   n.neighbors = k, min.dist = 0.1, n.components = 2L, 
-                   umap.method = "uwot", uwot.sgd = TRUE, verbose = F)
-        
-    print("Perform leiden clustering...")
-    if (res == "none") {
-        res <- 0.5
-    }
-    print(paste0("resolution used for leiden clustering: ", res)) 
-
-    mmg <- FindNeighbors(object = mmg, k.param = k, reduction = reduction, dims = 1:npc, 
-                     nn.method = "annoy", annoy.metric = "cosine", verbose = F)
-    
-    ### in hicat the resolution for one step clustering is set to be 0.01. 
-    ### Disable this setting since it does not give any information.
-    suppressWarnings(mmg <- FindClusters(object = mmg, algorithm = 4, method = "igraph", weights = T, resolution = res, verbose = F))
-
-    return(mmg)
-}
-
-### Preprocess with onestep_clust()
-ProcessRNA_hicat <- function(rna_path, valid){
-    ### rna_path: path to 10X generated RNA raw counts
-    ### valid: valid cell table, contains at least column recording RNA barcode information, with name "rna"
-    mmg <- Read10X(rna_path)
-    if(!("rna" %in% colnames(valid))){
-        stop("rna barcode information is not found in valid barcodes file. Make sure column with name 'rna' exists.")
-    }
-    if ("atac_bc" %in% colnames(valid)){
-        cat("The provided barcode file seems to be a multiplexed reaction. Determine multiplet based on the observed collision rate...\n")
-        nondup <- valid$rna[!duplicated(valid$rna) & !duplicated(valid$rna, fromLast = TRUE)] ### RNA barcodes appear once
-        dup <- valid$rna[duplicated(valid$rna) | duplicated(valid$rna, fromLast = TRUE)] %>% unique ### RNA barcodes appear multiple times
-        cat("Number of RNA barcodes matched with multiple ATAC barcodes: ", length(unique(dup)), "\n")
-        observed_collide <- 100 * (length(unique(valid$rna)) - length(nondup))/length(unique(valid$rna))
-        cat(paste0("observed collision rate:", round(observed_collide, 2), "%\n"))
-        # estimated_collide <- 100 * (length(unique(valid$rna)) * 0.08)/10000
-        # collide <- estimated_collide - observed_collide
-        preindex <- substr(valid$atac_bc, 1, (nchar(valid$atac_bc[1]) - 16))
-        collide_ratio <- sum(table(preindex)^2)/(sum(table(preindex))^2 - sum(table(preindex)^2))
-        collide <- observed_collide * collide_ratio
-        if(is.na(collide)){
-            collide <- 0
-        }
-        part <- max(0.1, collide/100)
-        cat(paste0("Estimated doublets rate after removing explict multiplet: ", round(collide, 2), "%\n"))
-    }else if (length(unique(valid$rna)) != nrow(valid)){
-        stop("Duplicated RNA barcodes detected, but the valid barcode file is not for multiplexed sample.")
-    }else{
-        nondup <- unique(valid$rna)
-        collide <- 100 * (length(nondup) * 0.08)/10000
-        part <- max(0.15, collide/100)
-    }
-    mmg <- mmg[, nondup]
-    mmg <- CreateSeuratObject(mmg)
-    
-    cat(paste0("cells number after paired segment: ", length(nondup), "\n"))
-    cat(paste0("start preprocessing...\n"))
-    mmg$percent.mt <- PercentageFeatureSet(mmg, pattern = "^MT-")
-    mmg$percent.ribo <- PercentageFeatureSet(mmg, pattern = "(^RPL|^RPS|^MRP)")
-    gene_lcf <- median(log10(mmg$nFeature_RNA)) - 3*mad(log10(mmg$nFeature_RNA))
-    gene_hcf <- median(log10(mmg$nFeature_RNA)) + 3*mad(log10(mmg$nFeature_RNA))
-    count_hcf <- median(log10(mmg$nCount_RNA)) + 3*mad(log10(mmg$nCount_RNA))
-    
-    cat(paste0("gene lowest cutoff: ", max(300, round(10^gene_lcf)), "\ngene highest cutoff: ", round(10^gene_hcf), "\nreads highest cutoff: ", min(50000, round(10^count_hcf))), "\n")
-    mmg <- subset(mmg, subset = nCount_RNA < min(50000, 10^count_hcf) & nFeature_RNA > max(300, 10^gene_lcf) & nFeature_RNA < 10^gene_hcf & percent.mt < 10)
-    cat(paste0("cells number after quality segment: ", ncol(mmg), "\n"))
-    cat(paste0("start processing RNA data...\n"))
-    mmg <- seurat_onestep_clust(mmg)
-    
-    cat(paste0("start identifying doublets...\n"))
-    cat(paste0("estimated doublets rate: ", collide, "%\n"))
-    doublet <- doubletfinder(mmg, VariableFeatures(mmg), 
-                             proportion.artificial = part, plot = T)
-    cat(paste0("calculated doublet rate: ", 100*(table(doublet[[1]] > 0.25)/length(doublet[[1]]))[2], "%\n"))
-    mmg$doublet_score <- doublet[[1]]
-    mmg$doublet_ident <- ifelse(doublet[[1]] > 0.25, "Doublet", "Singlet")
-    return(mmg)
-}
-
 ### Find DE genes for clusters, adopted from Zemke 2023 Nature
 ### need to be tested
-run.edgeR <- function(counts, sample, group, prefix){
+run.edgeR <- function(counts, sample, group, prefix, pairwise = FALSE){
     library("edgeR")
 
     ### counts: a gene by group matrix. Can obtained through AggregateExpression() 
     ### sample: a dataframe recording sample and group information. 
     ### group: name of group information in sample (group %in% colnames(sample))
     ### prefix: saving file as...
-    
+    cat("now creating DGE class for edgeR...\n")
     group.list <- factor(sample[, group])
     dge = DGEList(counts = counts, group = group.list, samples = sample)
     keep = filterByExpr(dge)
@@ -633,27 +562,180 @@ run.edgeR <- function(counts, sample, group, prefix){
     dge = estimateDisp(dge, trend.method = 'locfit', design = design)
     fit = glmFit(dge, design = design)
     
-    cat("now perform glmLRT for individual clusters...\n")
+    cat("now performing glmLRT for individual clusters...\n")
     coef <- unique(group.list)
     for (f in coef){
         ### Perform an ANOVA like test for all groups
         cat(paste0("cluster: ", f, "\n"))
-        one_v_rest = c(rep(-1/length(coef), n = length(coef)))
+        one_v_rest = c(rep(-1/(length(coef)-1), times = length(coef)))
         one_v_rest[which(coef == f)] = 1  
         vrest = glmLRT(fit, contrast = one_v_rest)
         write.table(topTags(vrest, n = "Inf")$table, file = paste0(prefix, "_edgeR_", f, "_vs_all_groups.xls"),
                     sep = "\t", quote = F)
-        for (s in coef){
-        ### Perform pairwise test for each group
-            if (s == f){
-                    next
+        cat(paste0("cluster: ", f, " finish.\n"))
+        if(pairwise){
+            cat(paste0("Now calculate pairwise test for cluster: ", f, "\n"))
+            for (s in coef){
+            ### Perform pairwise test for each group
+                if (s == f){
+                        next
+                }
+                one_v_one = c(rep(0, times = length(coef)))
+                one_v_one[which(coef == f)] = 1  
+                one_v_one[which(coef == s)] = -1 
+                vtest = glmLRT(fit, contrast = one_v_one)
+                write.table(topTags(vtest, n = "Inf")$table, file = paste0(prefix, "_edgeR_", f, "_vs_", s, ".xls"),
+                            sep = "\t", quote = F)
             }
-            one_v_one = c(rep(0, n = length(coef)))
-            one_v_one[which(coef == f)] = 1  
-            one_v_one[which(coef == s)] = -1 
-            vtest = glmLRT(fit, contrast = one_v_one)
-            write.table(topTags(vtest, n = "Inf")$table, file = paste0(prefix, "_edgeR_", f, "_vs_", s, ".xls"),
-                        sep = "\t", quote = F)
         }
     }
+}
+
+### add a continous option for edgeR
+### also enable spline fit
+edgeR_ovr_pairwise <- function (counts, sample, group, prefix, pairwise = FALSE,
+        mode = c("group", "continuous"),
+        spline_df = NULL,
+        shape_flat_tol = log(2)) {  # min fold-change across depth to be "non-flat"
+  stopifnot(is.matrix(counts) || inherits(counts, "dgCMatrix"))
+  stopifnot(group %in% colnames(sample))
+  mode <- match.arg(mode)
+
+  message("Checking sample order matches counts columns...")
+  if (!all(colnames(counts) %in% rownames(sample)))
+      stop("All count columns must exist as rownames in 'sample'.")
+  sample <- sample[colnames(counts), , drop = FALSE]
+
+  suppressPackageStartupMessages(library(edgeR))
+
+  message("Creating DGEList...")
+  dge <- DGEList(counts = counts, samples = sample)
+
+  if (mode == "group") {
+      grp <- factor(sample[[group]])
+      if (nlevels(grp) < 2L) stop("Need at least two groups for DE.")
+      keep <- filterByExpr(dge, group = grp)
+  } else {
+      covar <- sample[[group]]
+      if (!is.numeric(covar)) stop("For mode = 'continuous', 'group' must be numeric.")
+      keep <- filterByExpr(dge)
+  }
+
+  dge <- dge[keep, , keep.lib.sizes = FALSE]
+  dge <- calcNormFactors(dge, method = "TMM")
+
+  # ---- design ----
+  if (mode == "group") {
+      design <- model.matrix(~0 + grp)
+      colnames(design) <- levels(grp)
+  } else if (is.null(spline_df)) {
+      design <- model.matrix(~covar)
+      colnames(design) <- c("Intercept", group)
+  } else {
+      stopifnot(is.numeric(spline_df), spline_df >= 2)
+      suppressPackageStartupMessages(library(splines))
+      ns_mat <- ns(covar, df = spline_df)
+      design <- model.matrix(~ns_mat)
+      colnames(design) <- c("Intercept",
+                            paste0(group, "_ns", seq_len(ncol(ns_mat))))
+  }
+
+  dge <- estimateDisp(dge, design = design, robust = TRUE)
+  fit <- glmQLFit(dge, design = design, robust = TRUE)
+
+  # ---- shape classifier (used only in spline mode) ----
+  classify_spline_shape <- function(curve, flat_tol) {
+      if (diff(range(curve)) < flat_tol) return("flat")
+      d <- diff(curve)
+      # Ignore derivative changes smaller than 10% of the peak slope:
+      # these are noise-level wiggles, not real extrema.
+      slope_tol <- 0.10 * max(abs(d))
+      d_signed  <- ifelse(abs(d) < slope_tol, 0, sign(d))
+      d_signed  <- d_signed[d_signed != 0]
+      if (length(d_signed) == 0) return("flat")
+      sc <- sum(abs(diff(d_signed)) == 2)   # only count true +/- flips
+      if (sc == 0) return(if (d_signed[1] > 0) "monotone_up" else "monotone_down")
+      if (sc == 1) {
+          endpoint_mean <- mean(curve[c(1, length(curve))])
+          up   <- max(curve) - endpoint_mean
+          down <- endpoint_mean - min(curve)
+          return(if (up > down) "peaked" else "U")
+      }
+      "multi_modal"
+  }
+
+  run_contrast <- function(w, outname) {
+      qlf <- glmQLFTest(fit, contrast = w)
+      tab <- topTags(qlf, n = Inf)$table
+      write.table(tab, file = paste0(prefix, "_edgeR_", outname, ".tsv"),
+                  sep = "\t", quote = FALSE, row.names = TRUE)
+  }
+
+  # ---- tests ----
+  if (mode == "group") {
+      levs <- levels(grp); k <- length(levs)
+      message("Running one-vs-rest contrasts...")
+      for (f in levs) {
+          w <- rep(-1/(k - 1), k); names(w) <- levs; w[f] <- 1
+          run_contrast(w, paste0(f, "_vs_all"))
+      }
+      if (pairwise) {
+          message("Running pairwise contrasts...")
+          for (i in seq_len(k)) for (j in seq_len(k)) {
+              if (i >= j) next
+              f <- levs[i]; s <- levs[j]
+              w <- setNames(rep(0, k), levs); w[f] <- 1; w[s] <- -1
+              run_contrast(w, paste0(f, "_vs_", s))
+          }
+      }
+  } else if (is.null(spline_df)) {
+      message("Running continuous variable test (linear)...")
+      qlf <- glmQLFTest(fit, coef = group)
+      tab <- topTags(qlf, n = Inf)$table
+      write.table(tab,
+                  file = paste0(prefix, "_edgeR_", group, "_continuous.tsv"),
+                  sep = "\t", quote = FALSE, row.names = TRUE)
+  } else {
+      message(sprintf("Running continuous variable test (natural spline, df=%d)...",
+                      spline_df))
+      spline_cols <- 2:ncol(design)
+      qlf <- glmQLFTest(fit, coef = spline_cols)
+      tab <- topTags(qlf, n = Inf)$table
+
+      message("Classifying per-gene spline shapes...")
+      grid     <- seq(min(covar), max(covar), length.out = 200)
+      ns_grid  <- predict(ns_mat, grid)                         # same knots as the fit
+      coef_sp  <- fit$coefficients[, spline_cols, drop = FALSE] # genes x spline_df
+      curves   <- coef_sp %*% t(ns_grid)                         # genes x grid
+      shapes   <- apply(curves, 1, classify_spline_shape,
+                        flat_tol = shape_flat_tol)
+
+      # peak / trough location in depth units (useful for interpretation)
+      peak_depth <- grid[apply(curves, 1, which.max)]
+      trough_depth <- grid[apply(curves, 1, which.min)]
+      depth_range <- apply(curves, 1, function(v) diff(range(v)))
+
+      tab$shape        <- shapes[rownames(tab)]
+      tab$peak_depth   <- peak_depth[rownames(tab)]
+      tab$trough_depth <- trough_depth[rownames(tab)]
+      tab$depth_range  <- depth_range[rownames(tab)]
+
+      write.table(tab,
+                  file = paste0(prefix, "_edgeR_", group, "_spline", spline_df, ".tsv"),
+                  sep = "\t", quote = FALSE, row.names = TRUE)
+  }
+
+  message("Done.")
+}
+
+
+### Calculate tissue / cell type specificity of marker genes
+### adopted from hicat (https://rdrr.io/github/AllenInstitute/scrattch.hicat/src/R/util.R#sym-calc_tau)
+calc_tau <- function(m) {  
+  row_maxes <- apply(m, 1, max)
+  
+  m <- m / row_maxes
+  tau <- Matrix::rowSums(1 - m) / (ncol(m) - 1)
+  tau[is.na(tau)] <- 0
+  return(tau)
 }

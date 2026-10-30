@@ -6,6 +6,7 @@ source("/projects/ps-renlab2/y2xie/scripts/basics.R")
 source("/projects/ps-renlab2/y2xie/scripts/DPT_help.R")
 source("/projects/ps-renlab2/y2xie/scripts/hicat_vg.R")
 source("/projects/ps-renlab2/y2xie/scripts/hicat_doubletfinder_mo.R")
+source("/projects/ps-renlab2/y2xie/scripts/DPT/BICAN_help.R")
 
 
 args <- commandArgs(trailingOnly = TRUE)
